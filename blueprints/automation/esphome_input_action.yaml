@@ -1,0 +1,70 @@
+blueprint:
+  name: ESPHome Input Action (failsafe event)
+  description: >
+    Uruchamia akcję na podstawie eventu esphome.input_action (input/action/toggle).
+  domain: automation
+  input:
+    input_id:
+      name: Numer wejścia
+      selector:
+        number:
+          min: 1
+          max: 64
+          mode: box
+          step: 1
+
+    action_type:
+      name: Typ akcji
+      selector:
+        select:
+          options:
+            - press
+            - single
+            - double
+            - long
+
+    toggle_filter:
+      name: Filtr toggle
+      description: any = ignoruj toggle, on/off = wymagaj konkretnego stanu
+      default: any
+      selector:
+        select:
+          options:
+            - any
+            - on
+            - off
+
+    run_action:
+      name: Co wykonać
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: event
+    event_type: esphome.input_action
+
+variables:
+  v_input_id: !input input_id
+  v_action_type: !input action_type
+  v_toggle_filter: !input toggle_filter
+
+condition:
+  - condition: template
+    value_template: >
+      {% set ev = trigger.event.data %}
+      {% set input_ok = (ev.input | int(-1)) == (v_input_id | int(-2)) %}
+      {% set action_ok = (ev.action | string) == (v_action_type | string) %}
+      {% if v_toggle_filter == 'any' %}
+        {{ input_ok and action_ok }}
+      {% elif v_toggle_filter == 'on' %}
+        {{ input_ok and action_ok and (ev.toggle is defined) and ((ev.toggle | int(0)) == 1) }}
+      {% elif v_toggle_filter == 'off' %}
+        {{ input_ok and action_ok and (ev.toggle is defined) and ((ev.toggle | int(1)) == 0) }}
+      {% else %}
+        false
+      {% endif %}
+
+action: !input run_action
