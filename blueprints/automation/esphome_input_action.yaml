@@ -1,11 +1,14 @@
 blueprint:
-  name: ESPHome Input Action (failsafe event)
+  name: ESPHome Input Action (Advanced)
   description: >
-    Uruchamia akcję na podstawie eventu esphome.input_action (input/action/toggle).
+    Rozszerzony blueprint dla eventu esphome.input_action.
+    Pozwala mapować wejścia (press/single/double/long + opcjonalny filtr toggle)
+    na gotowe akcje (światła, rolety, scene, skrypty, switch) lub własną sekwencję.
   domain: automation
   input:
     input_id:
       name: Numer wejścia
+      description: Numer wejścia wysyłany w event.data.input.
       selector:
         number:
           min: 1
@@ -14,7 +17,7 @@ blueprint:
           step: 1
 
     action_type:
-      name: Typ akcji
+      name: Typ akcji wejścia
       selector:
         select:
           options:
@@ -25,7 +28,7 @@ blueprint:
 
     toggle_filter:
       name: Filtr toggle
-      description: any = ignoruj toggle, toggle_1/toggle_0 = wymagaj konkretnego stanu
+      description: any = ignoruj toggle, toggle_1/toggle_0 = wymagaj konkretnego stanu.
       default: any
       selector:
         select:
@@ -34,13 +37,93 @@ blueprint:
             - toggle_1
             - toggle_0
 
-    run_action:
-      name: Co wykonać
+    execution_mode:
+      name: Tryb wykonania
+      description: Wybierz gotową akcję lub własną sekwencję.
+      default: custom_action
+      selector:
+        select:
+          options:
+            - custom_action
+            - light_toggle
+            - light_on
+            - light_off
+            - switch_toggle
+            - switch_on
+            - switch_off
+            - cover_open
+            - cover_close
+            - cover_stop
+            - scene_activate
+            - script_run
+
+    light_target:
+      name: Światło
+      description: Używane gdy wybrano light_*.
+      selector:
+        entity:
+          filter:
+            - domain: light
+
+    switch_target:
+      name: Przełącznik
+      description: Używane gdy wybrano switch_*.
+      selector:
+        entity:
+          filter:
+            - domain: switch
+
+    cover_target:
+      name: Roleta/Brama (cover)
+      description: Używane gdy wybrano cover_*.
+      selector:
+        entity:
+          filter:
+            - domain: cover
+
+    scene_target:
+      name: Scena
+      description: Używane gdy wybrano scene_activate.
+      selector:
+        entity:
+          filter:
+            - domain: scene
+
+    script_target:
+      name: Skrypt
+      description: Używane gdy wybrano script_run.
+      selector:
+        entity:
+          filter:
+            - domain: script
+
+    extra_conditions:
+      name: Dodatkowe warunki (opcjonalne)
+      description: Warunki z UI HA (czas, obecność, helpery itd.).
+      default: []
+      selector:
+        condition: {}
+
+    pre_actions:
+      name: Akcje przed główną akcją (opcjonalne)
+      default: []
       selector:
         action: {}
 
-mode: single
-max_exceeded: silent
+    custom_actions:
+      name: Własne akcje (tylko dla trybu custom_action)
+      default: []
+      selector:
+        action: {}
+
+    post_actions:
+      name: Akcje po głównej akcji (opcjonalne)
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max: 20
 
 trigger:
   - platform: event
@@ -50,6 +133,7 @@ variables:
   v_input_id: !input input_id
   v_action_type: !input action_type
   v_toggle_filter: !input toggle_filter
+  v_mode: !input execution_mode
 
 condition:
   - condition: template
@@ -66,5 +150,125 @@ condition:
       {% else %}
         false
       {% endif %}
+  - condition: and
+    conditions: !input extra_conditions
 
-action: !input run_action
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'custom_action' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - sequence: !input custom_actions
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'light_toggle' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: light.toggle
+            target:
+              entity_id: !input light_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'light_on' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: light.turn_on
+            target:
+              entity_id: !input light_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'light_off' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: light.turn_off
+            target:
+              entity_id: !input light_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'switch_toggle' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: switch.toggle
+            target:
+              entity_id: !input switch_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'switch_on' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: switch.turn_on
+            target:
+              entity_id: !input switch_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'switch_off' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: switch.turn_off
+            target:
+              entity_id: !input switch_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'cover_open' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: cover.open_cover
+            target:
+              entity_id: !input cover_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'cover_close' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: cover.close_cover
+            target:
+              entity_id: !input cover_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'cover_stop' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: cover.stop_cover
+            target:
+              entity_id: !input cover_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'scene_activate' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: scene.turn_on
+            target:
+              entity_id: !input scene_target
+          - sequence: !input post_actions
+
+      - conditions:
+          - condition: template
+            value_template: "{{ v_mode == 'script_run' }}"
+        sequence:
+          - sequence: !input pre_actions
+          - service: script.turn_on
+            target:
+              entity_id: !input script_target
+          - sequence: !input post_actions
