@@ -25,14 +25,17 @@ blueprint:
 
     toggle_filter:
       name: Filtr toggle
-      description: any = ignoruj toggle, on/off = wymagaj konkretnego stanu
+      description: any = ignoruj toggle, toggle_1/toggle_0 = wymagaj konkretnego stanu
       default: any
       selector:
         select:
           options:
-            - any
-            - "on"
-            - "off"
+            - label: Dowolny
+              value: any
+            - label: Tylko toggle=1
+              value: toggle_1
+            - label: Tylko toggle=0
+              value: toggle_0
 
     run_action:
       name: Co wykonać
@@ -59,9 +62,9 @@ condition:
       {% set action_ok = (ev.action | string) == (v_action_type | string) %}
       {% if v_toggle_filter == 'any' %}
         {{ input_ok and action_ok }}
-      {% elif v_toggle_filter == 'on' %}
+      {% elif v_toggle_filter == 'toggle_1' %}
         {{ input_ok and action_ok and (ev.toggle is defined) and ((ev.toggle | int(0)) == 1) }}
-      {% elif v_toggle_filter == 'off' %}
+      {% elif v_toggle_filter == 'toggle_0' %}
         {{ input_ok and action_ok and (ev.toggle is defined) and ((ev.toggle | int(1)) == 0) }}
       {% else %}
         false
