@@ -30,12 +30,9 @@ blueprint:
       selector:
         select:
           options:
-            - label: Dowolny
-              value: any
-            - label: Tylko toggle=1
-              value: toggle_1
-            - label: Tylko toggle=0
-              value: toggle_0
+            - any
+            - toggle_1
+            - toggle_0
 
     run_action:
       name: Co wykonać
