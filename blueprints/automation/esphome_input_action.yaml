@@ -31,8 +31,8 @@ blueprint:
         select:
           options:
             - any
-            - on
-            - off
+            - "on"
+            - "off"
 
     run_action:
       name: Co wykonać
